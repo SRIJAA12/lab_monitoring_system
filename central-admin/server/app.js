@@ -68,7 +68,12 @@ mongoose.connect(MONGODB_URI, {
   socketTimeoutMS: 45000,
   family: 4
 })
-  .then(() => console.log("✅ MongoDB connected successfully"))
+  .then(async () => {
+    console.log("✅ MongoDB connected successfully");
+    
+    // Clean up any lingering active sessions from previous server runs
+    await cleanupStaleSessions();
+  })
   .catch(err => console.error("❌ MongoDB connection error:", err));
 
 // Student Schema
@@ -133,6 +138,51 @@ const labSessionSchema = new mongoose.Schema({
 });
 
 const LabSession = mongoose.model('LabSession', labSessionSchema);
+
+// Cleanup function to mark all active sessions as completed when server starts
+async function cleanupStaleSessions() {
+  try {
+    const staleSessions = await Session.find({ status: 'active' });
+    
+    if (staleSessions.length > 0) {
+      console.log(`🧹 Cleaning up ${staleSessions.length} stale active session(s) from previous server run...`);
+      
+      const now = new Date();
+      await Session.updateMany(
+        { status: 'active' },
+        { 
+          status: 'completed',
+          logoutTime: now,
+          duration: 0, // Can't calculate accurate duration for interrupted sessions
+          notes: 'Auto-closed: Server restart'
+        }
+      );
+      
+      console.log(`✅ Cleaned up ${staleSessions.length} stale session(s)`);
+    } else {
+      console.log(`✅ No stale sessions found - database is clean`);
+    }
+    
+    // Also cleanup any active lab sessions
+    const staleLabSessions = await LabSession.find({ status: 'active' });
+    if (staleLabSessions.length > 0) {
+      console.log(`🧹 Cleaning up ${staleLabSessions.length} stale active lab session(s)...`);
+      
+      const now = new Date();
+      await LabSession.updateMany(
+        { status: 'active' },
+        { 
+          status: 'completed',
+          endTime: now
+        }
+      );
+      
+      console.log(`✅ Cleaned up ${staleLabSessions.length} stale lab session(s)`);
+    }
+  } catch (error) {
+    console.error('❌ Error cleaning up stale sessions:', error);
+  }
+}
 
 // One-Time Password Schema
 const oneTimePasswordSchema = new mongoose.Schema({

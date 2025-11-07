@@ -257,7 +257,7 @@
                     <div class="alert alert-info mt-2">
                         <i class="fas fa-info-circle"></i>
                         <strong>First-time Sign-in:</strong> 
-                        <a href="http://10.10.166.171:7401/student-signin/" target="_blank" class="alert-link">
+                        <a href="http://localhost:7401/student-signin/" target="_blank" class="alert-link">
                             Complete setup online first
                         </a>
                     </div>
@@ -639,7 +639,7 @@ Contact your lab administrator for assistance.`);
             modal.innerHTML = `
                 <div style="background:white;padding:30px;border-radius:15px;max-width:400px;width:90%;position:relative;z-index:10000;pointer-events:auto;">
                     <h4>🆔 Enter Student ID</h4>
-                    <input type="text" id="fpStudentId" placeholder="Student ID (e.g., IT2021005)" autofocus autocomplete="off" style="width:100%;padding:10px;margin:10px 0;border:1px solid #ddd;border-radius:5px;position:relative;z-index:10001;pointer-events:auto;user-select:text;-webkit-user-select:text;">
+                    <input type="text" id="fpStudentId" placeholder="Student ID (e.g., IT2021005)" tabindex="1" autocomplete="off" style="width:100%;padding:10px;margin:10px 0;border:1px solid #ddd;border-radius:5px;position:relative;z-index:10001;pointer-events:auto;user-select:text;-webkit-user-select:text;">
                     <div style="display:flex;gap:10px;margin-top:20px;">
                         <button id="fpSIDCancelBtn" style="flex:1;padding:10px;background:#6c757d;color:white;border:none;border-radius:5px;cursor:pointer;position:relative;z-index:10001;pointer-events:auto;">Cancel</button>
                         <button id="fpSIDNextBtn" style="flex:1;padding:10px;background:#007bff;color:white;border:none;border-radius:5px;cursor:pointer;position:relative;z-index:10001;pointer-events:auto;">Next</button>
@@ -647,7 +647,8 @@ Contact your lab administrator for assistance.`);
                 </div>
             `;
             document.body.appendChild(modal);
-            // Aggressive focus with multiple attempts
+            
+            // Improved focus strategy using requestAnimationFrame
             const activateInput = () => {
                 const input = document.getElementById('fpStudentId');
                 if (input) {
@@ -660,11 +661,22 @@ Contact your lab administrator for assistance.`);
                 }
             };
             
-            // Try multiple times to ensure it works
+            // Immediate attempt
+            activateInput();
+            
+            // Wait for next browser paint cycle (most reliable)
+            requestAnimationFrame(() => {
+                activateInput();
+                // Double-check after paint
+                requestAnimationFrame(() => {
+                    activateInput();
+                });
+            });
+            
+            // Additional fallback attempts
             setTimeout(activateInput, 50);
-            setTimeout(activateInput, 100);
-            setTimeout(activateInput, 200);
-            setTimeout(activateInput, 500);
+            setTimeout(activateInput, 150);
+            setTimeout(activateInput, 300);
             
             // Add button event listeners
             setTimeout(() => {
@@ -690,11 +702,27 @@ Contact your lab administrator for assistance.`);
                 }
                 
                 if (input) {
+                    // Make input immediately responsive to any interaction
+                    input.addEventListener('mousedown', function(e) {
+                        e.stopPropagation();
+                        this.focus();
+                    });
+                    
+                    input.addEventListener('click', function(e) {
+                        e.stopPropagation();
+                        this.focus();
+                        this.select();
+                    });
+                    
                     input.addEventListener('keypress', function(e) {
                         if (e.key === 'Enter') {
                             submitStudentId();
                         }
                     });
+                    
+                    // Force immediate focus
+                    input.focus();
+                    input.click();
                 }
             }, 100);
         }
@@ -717,7 +745,7 @@ Contact your lab administrator for assistance.`);
                     <h4>📧 Enter Email Address</h4>
                     <p><strong>Student:</strong> ${studentName}<br>
                     <strong>Registered:</strong> ${maskedEmail}</p>
-                    <input type="email" id="fpEmail" placeholder="Enter your complete email address" autofocus autocomplete="off" style="width:100%;padding:10px;margin:10px 0;border:1px solid #ddd;border-radius:5px;position:relative;z-index:10001;pointer-events:auto;user-select:text;-webkit-user-select:text;">
+                    <input type="email" id="fpEmail" placeholder="Enter your complete email address" tabindex="1" autocomplete="off" style="width:100%;padding:10px;margin:10px 0;border:1px solid #ddd;border-radius:5px;position:relative;z-index:10001;pointer-events:auto;user-select:text;-webkit-user-select:text;">
                     <div style="display:flex;gap:10px;margin-top:20px;">
                         <button id="fpEmailCancelBtn" style="flex:1;padding:10px;background:#6c757d;color:white;border:none;border-radius:5px;cursor:pointer;position:relative;z-index:10001;pointer-events:auto;">Cancel</button>
                         <button id="fpEmailSendBtn" style="flex:1;padding:10px;background:#007bff;color:white;border:none;border-radius:5px;cursor:pointer;position:relative;z-index:10001;pointer-events:auto;">Send OTP</button>
@@ -725,7 +753,8 @@ Contact your lab administrator for assistance.`);
                 </div>
             `;
             document.body.appendChild(modal);
-            // Aggressive focus with multiple attempts
+            
+            // Improved focus strategy using requestAnimationFrame
             const activateInput = () => {
                 const input = document.getElementById('fpEmail');
                 if (input) {
@@ -737,10 +766,22 @@ Contact your lab administrator for assistance.`);
                 }
             };
             
+            // Immediate attempt
+            activateInput();
+            
+            // Wait for next browser paint cycle (most reliable)
+            requestAnimationFrame(() => {
+                activateInput();
+                // Double-check after paint
+                requestAnimationFrame(() => {
+                    activateInput();
+                });
+            });
+            
+            // Additional fallback attempts
             setTimeout(activateInput, 50);
-            setTimeout(activateInput, 100);
-            setTimeout(activateInput, 200);
-            setTimeout(activateInput, 500);
+            setTimeout(activateInput, 150);
+            setTimeout(activateInput, 300);
             
             // Add button event listeners
             setTimeout(() => {
@@ -766,11 +807,27 @@ Contact your lab administrator for assistance.`);
                 }
                 
                 if (input) {
+                    // Make input immediately responsive to any interaction
+                    input.addEventListener('mousedown', function(e) {
+                        e.stopPropagation();
+                        this.focus();
+                    });
+                    
+                    input.addEventListener('click', function(e) {
+                        e.stopPropagation();
+                        this.focus();
+                        this.select();
+                    });
+                    
                     input.addEventListener('keypress', function(e) {
                         if (e.key === 'Enter') {
                             submitEmail(studentId, studentName);
                         }
                     });
+                    
+                    // Force immediate focus
+                    input.focus();
+                    input.click();
                 }
             }, 100);
         }
@@ -792,7 +849,7 @@ Contact your lab administrator for assistance.`);
 
         async function initiateForgotPassword(studentId) {
             try {
-                const response = await fetch('http://10.10.166.171:7401/api/forgot-password-initiate', {
+                const response = await fetch('http://localhost:7401/api/forgot-password-initiate', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ studentId })
@@ -826,7 +883,7 @@ Please check:
             try {
                 addDebugLog(`📧 Sending OTP to email: ${email}`);
                 
-                const response = await fetch('http://10.10.166.171:7401/api/forgot-password-send-otp', {
+                const response = await fetch('http://localhost:7401/api/forgot-password-send-otp', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ studentId, email })
@@ -887,7 +944,7 @@ Please check:
                     
                     <div style="margin-bottom:15px;">
                         <label style="display:block;margin-bottom:5px;font-weight:bold;color:#333;">6-Digit OTP Code:</label>
-                        <input type="text" id="fpOTP" placeholder="000000" maxlength="6" autofocus
+                        <input type="text" id="fpOTP" placeholder="000000" maxlength="6" tabindex="1"
                                style="width:100%;padding:15px;font-size:18px;text-align:center;letter-spacing:3px;border:2px solid #28a745;border-radius:8px;background:#fff;position:relative;z-index:10001;pointer-events:auto;user-select:text;-webkit-user-select:text;"
                                autocomplete="off" spellcheck="false">
                         <small style="color:#666;display:block;margin-top:5px;">📧 Check your email for the OTP code</small>
@@ -895,7 +952,7 @@ Please check:
                     
                     <div style="margin-bottom:20px;">
                         <label style="display:block;margin-bottom:5px;font-weight:bold;color:#333;">New Password:</label>
-                        <input type="password" id="fpNewPassword" placeholder="Enter new password (min 6 chars)" 
+                        <input type="password" id="fpNewPassword" placeholder="Enter new password (min 6 chars)" tabindex="2"
                                style="width:100%;padding:15px;font-size:16px;border:2px solid #ddd;border-radius:8px;position:relative;z-index:10001;pointer-events:auto;user-select:text;-webkit-user-select:text;">
                     </div>
                     
@@ -909,7 +966,7 @@ Please check:
             `;
             document.body.appendChild(modal);
             
-            // Aggressive focus with multiple attempts
+            // Improved focus strategy using requestAnimationFrame
             const activateOTPInput = () => {
                 const otpInput = document.getElementById('fpOTP');
                 const passwordInput = document.getElementById('fpNewPassword');
@@ -922,38 +979,56 @@ Please check:
                     otpInput.removeAttribute('readonly');
                     otpInput.removeAttribute('disabled');
                     
-                    // Add better event handlers
-                    otpInput.addEventListener('input', function(e) {
-                        // Only allow numbers
-                        this.value = this.value.replace(/[^0-9]/g, '');
+                    // Add better event handlers (only once)
+                    if (!otpInput.hasAttribute('data-handlers-added')) {
+                        otpInput.setAttribute('data-handlers-added', 'true');
                         
-                        // Auto-advance to password field when 6 digits entered
-                        if (this.value.length === 6 && passwordInput) {
-                            setTimeout(() => passwordInput.focus(), 100);
-                        }
-                    });
-                    
-                    // Handle paste events
-                    otpInput.addEventListener('paste', function(e) {
-                        setTimeout(() => {
-                            this.value = this.value.replace(/[^0-9]/g, '').substring(0, 6);
+                        otpInput.addEventListener('input', function(e) {
+                            // Only allow numbers
+                            this.value = this.value.replace(/[^0-9]/g, '');
+                            
+                            // Auto-advance to password field when 6 digits entered
                             if (this.value.length === 6 && passwordInput) {
                                 setTimeout(() => passwordInput.focus(), 100);
                             }
-                        }, 10);
-                    });
-                    
-                    // Handle click to ensure focus
-                    otpInput.addEventListener('click', function() {
-                        this.focus();
-                        this.select();
-                    });
+                        });
+                        
+                        // Handle paste events
+                        otpInput.addEventListener('paste', function(e) {
+                            setTimeout(() => {
+                                this.value = this.value.replace(/[^0-9]/g, '').substring(0, 6);
+                                if (this.value.length === 6 && passwordInput) {
+                                    setTimeout(() => passwordInput.focus(), 100);
+                                }
+                            }, 10);
+                        });
+                        
+                        // Handle mousedown and click to ensure focus
+                        otpInput.addEventListener('mousedown', function(e) {
+                            e.stopPropagation();
+                            this.focus();
+                        });
+                        
+                        otpInput.addEventListener('click', function(e) {
+                            e.stopPropagation();
+                            this.focus();
+                            this.select();
+                        });
+                    }
                 }
                 
                 // Make password field more responsive
-                if (passwordInput) {
-                    // Handle click to ensure focus
-                    passwordInput.addEventListener('click', function() {
+                if (passwordInput && !passwordInput.hasAttribute('data-handlers-added')) {
+                    passwordInput.setAttribute('data-handlers-added', 'true');
+                    
+                    // Handle mousedown and click to ensure focus
+                    passwordInput.addEventListener('mousedown', function(e) {
+                        e.stopPropagation();
+                        this.focus();
+                    });
+                    
+                    passwordInput.addEventListener('click', function(e) {
+                        e.stopPropagation();
                         this.focus();
                     });
                     
@@ -968,11 +1043,22 @@ Please check:
                 }
             };
             
-            // Try multiple times to ensure it works
+            // Immediate attempt
+            activateOTPInput();
+            
+            // Wait for next browser paint cycle (most reliable)
+            requestAnimationFrame(() => {
+                activateOTPInput();
+                // Double-check after paint
+                requestAnimationFrame(() => {
+                    activateOTPInput();
+                });
+            });
+            
+            // Additional fallback attempts
             setTimeout(activateOTPInput, 50);
-            setTimeout(activateOTPInput, 100);
-            setTimeout(activateOTPInput, 200);
-            setTimeout(activateOTPInput, 500);
+            setTimeout(activateOTPInput, 150);
+            setTimeout(activateOTPInput, 300);
             
             // Add button event listeners
             setTimeout(() => {
@@ -1042,7 +1128,7 @@ Please check:
             try {
                 addDebugLog(`🔄 Verifying OTP and resetting password for: ${studentId}`);
                 
-                const response = await fetch('http://10.10.166.171:7401/api/forgot-password-verify-otp', {
+                const response = await fetch('http://localhost:7401/api/forgot-password-verify-otp', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ 

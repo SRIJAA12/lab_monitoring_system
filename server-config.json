@@ -1,6 +1,6 @@
 {
-  "serverIp": "192.168.29.212",
-  "serverPort": "7401",
-  "lastUpdated": "2025-11-05T12:09:08.712Z",
+  "serverIp": "10.10.193.28",
+  "serverPort": 7401,
+  "lastUpdated": "2025-11-07T06:53:08.062Z",
   "autoDetect": true
 }
