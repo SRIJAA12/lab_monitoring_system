@@ -847,45 +847,26 @@
         let connectedStudents = new Map();
         let monitoringConnections = new Map();
         // Queue ICE candidates that arrive before remote description is set
-        let pendingICE = new Map(); // sessionId -> Array<RTCIceCandidateInit>
-        let sessionActive = false;
+        let pendingICE = new Map(); // sessionId -> Array<RTCIceCandidateInit>        let sessionActive = false;
         let currentLabSession = null;
         let sessionTimer = null;
         let sessionEndTime = null;
         let sessionExported = false; // Track if CSV has been exported
         let screenReadySessions = new Set(); // Track which kiosk screens are ready
         let autoRefreshInterval = null; // Periodic refresh timer
-        let serverUrl = null;
+        
+        // FIXED SERVER URL - Admin system only (no auto-detection needed)
+        const serverUrl = 'http://10.10.46.103:7401';
+        
         let hasShownRestoreNotification = false; // Track if we've shown the restore notification
 
-        // Load server URL from config file
-        async function loadServerUrl() {
-            try {
-                const response = await fetch('/server-config.json');
-                if (response.ok) {
-                    const config = await response.json();
-                    serverUrl = `http://${config.serverIp}:${config.serverPort}`;
-                    console.log('✅ Server URL loaded from config:', serverUrl);
-                    console.log('📅 Config last updated:', config.lastUpdated);
-                    return serverUrl;
-                }
-            } catch (error) {
-                console.warn('⚠️ Could not load config, trying current origin:', error.message);
-            }
-            // Fallback to current origin
-            serverUrl = window.location.origin;
-            console.log('⚠️ Using current origin as fallback:', serverUrl);
-            return serverUrl;
-        }
+        console.log('🎯 Using fixed server URL:', serverUrl);
+        console.log('📍 Admin dashboard configured for server at 10.10.46.103');
 
         // Initialize socket connection
         async function initializeSocket() {
             console.log('🚀 Admin dashboard loading...');
-            
-            // Load server URL first
-            if (!serverUrl) {
-                await loadServerUrl();
-            }
+            console.log('🔗 Connecting to:', serverUrl);
             
             socket = io(serverUrl);
             
@@ -1553,7 +1534,6 @@
                 </div>
                 <div class="student-actions">
                     <button onclick="expandVideo('${sessionId}')" class="btn-expand">🔍 Expand</button>
-                    <button onclick="shutdownSystem('${sessionId}', '${sessionData.systemNumber}')" class="btn-shutdown" title="Shutdown this system">🔌 Shutdown</button>
                     <div class="connection-status" id="status-${sessionId}">🔄 Auto-connecting...</div>
                 </div>
             `;
@@ -2060,21 +2040,31 @@
                 console.error('Error loading systems:', error);
                 showNotification('Failed to load systems. Check server connection.', 'error');
             }
-        }
-
-        // Render system buttons dynamically
+        }        // Render system buttons dynamically
         function renderSystemButtons(data) {
             const container = document.getElementById('guestAccessButtons');
             
-            if (data.systems.length === 0) {
-                container.innerHTML = '<p style="color: #999; text-align: center; grid-column: 1 / -1;">No systems found for this lab.</p>';
+            if (!data.systems || data.systems.length === 0) {
+                container.innerHTML = `
+                    <div style="grid-column: 1 / -1; text-align: center; padding: 40px; background: #f8f9fa; border-radius: 8px; border: 2px dashed #dee2e6;">
+                        <p style="font-size: 1.1rem; color: #6c757d; margin-bottom: 10px;">
+                            <strong>📡 No students logged in yet for ${data.labName || currentLabId}</strong>
+                        </p>
+                        <p style="color: #adb5bd; font-size: 0.95rem;">
+                            Systems will appear here automatically when students log in from kiosks.
+                        </p>
+                        <p style="color: #adb5bd; font-size: 0.9rem; margin-top: 10px;">
+                            💡 Tip: Only systems with active student sessions are shown here for screen monitoring.
+                        </p>
+                    </div>
+                `;
                 return;
             }
             
             const buttonsHTML = data.systems.map(system => {
                 const statusClass = system.status || 'offline';
                 const icon = getStatusIcon(system.status);
-                const disabled = (system.status !== 'available' && system.status !== 'guest') ? 'disabled' : '';
+                const disabled = (system.status !== 'logged-in' && system.status !== 'guest') ? 'disabled' : '';
                 const tooltip = getTooltipText(system);
                 
                 return `

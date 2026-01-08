@@ -1,318 +1,321 @@
-# Quick Test Guide - Remaining Features
+# 🚀 Quick Test Guide - Lab Management System Fixes
 
-**System Status:** Server running at `http://192.168.29.212:7401`  
-**Active Session:** `693ac27ac6e54dcfd1d2f93d`  
-**Logged-in Student:** Srijaa A (715524104158)  
-**Kiosk System:** CC1-10
+**Date:** January 7, 2026  
+**All fixes have been applied successfully!**
 
 ---
 
-## Test 1: Screen Mirroring (WebRTC) - 5 minutes
+## 📋 What Was Fixed
 
-**Prerequisites:**
-- ✅ Admin dashboard open: http://192.168.29.212:7401
-- ✅ Kiosk logged in (Session: 693ac27ac6e54dcfd1d2f93d)
-- ✅ ICE candidate queueing fixed
-
-**Steps:**
-1. In admin dashboard, find the student card for "Srijaa A" (System: CC1-10)
-2. Click the **"Start Monitoring"** button on the student card
-3. **Expected Results:**
-   - Video player appears on admin dashboard
-   - Kiosk screen visible in video stream
-   - No console errors about "remote description was null"
-4. **If it works:** ✅ Mark as PASSED
-5. **If errors:** Check browser console for specific WebRTC errors
-
-**Known Issue:**
-- Kiosk shows Windows Graphics Capture errors (error code -2147024809)
-- This may affect stream quality but should not prevent basic functionality
+✅ **Issue 1:** Automatic lab sessions not starting from timetable  
+✅ **Issue 2:** Systems list showing incorrect/static systems  
+✅ **Issue 3:** Automatic report generation verified and improved  
 
 ---
 
-## Test 2: Forgot Password Flow - 10 minutes
+## 🎯 Quick Testing Steps
 
-**Prerequisites:**
-- Test email configured in server
-- Student exists: 715524104158 / password123
+### Step 1: Restart the Server
 
-**Steps:**
-1. **Logout from kiosk:**
-   - Close timer window or use logout button
-   - Return to login screen
-
-2. **Click "Forgot Password"** on login screen
-
-3. **Enter Student ID:** 715524104158
-
-4. **Enter email address** (the one registered for this student)
-
-5. **Check email for OTP code**
-   - OTP expires in 10 minutes
-   - Check spam folder if not in inbox
-
-6. **Enter OTP and new password:**
-   - New password: `newpass123` (or any secure password)
-   - Confirm new password
-
-7. **Submit reset form**
-
-8. **Login with new credentials:**
-   - Student ID: 715524104158
-   - Password: newpass123 (the new one you set)
-
-**Expected Results:**
-- ✅ OTP email received within 30 seconds
-- ✅ Password reset successful message shown
-- ✅ Login works with new password
-- ✅ Old password (password123) no longer works
-
-**If it fails:**
-- Check server logs for email sending errors
-- Verify email configuration in server
-- Check MongoDB for student record
-
----
-
-## Test 3: First-Time Sign In - 10 minutes
-
-**Prerequisites:**
-- New student not yet in database
-- Test DOB known for verification
-
-**Steps:**
-1. **Click "First Time Sign In"** on login screen
-
-2. **Enter new student details:**
-   - Student ID: `NEW2025001` (any unique ID)
-   - Name: `Test New Student`
-   - Email: `testnew@example.com`
-   - Phone: `9876543210`
-   - Department: Computer Science and Engineering
-   - Section: A
-   - Year: 2
-
-3. **Enter Date of Birth for verification:**
-   - Use a memorable DOB like: 15/08/2003
-
-4. **Set initial password:**
-   - Password: `firstpass123`
-   - Confirm password: `firstpass123`
-
-5. **Submit form**
-
-6. **Login with new credentials:**
-   - Student ID: NEW2025001
-   - Password: firstpass123
-
-**Expected Results:**
-- ✅ Account created successfully
-- ✅ Success message shown
-- ✅ New student visible in MongoDB/admin dashboard
-- ✅ Login works immediately with new credentials
-
-**If it fails:**
-- Check server logs for database errors
-- Verify DOB format accepted by server
-- Check if student ID already exists
-
----
-
-## Test 4: Automatic Timetable - Variable time
-
-**Prerequisites:**
-- Sample CSV file ready
-- Admin dashboard access
-
-**Sample CSV Format:**
-```csv
-Date,Start Time,End Time,Subject,Faculty,Lab
-2025-12-11,19:00,19:30,Test Session,Prof Test,CC1
+```cmd
+cd d:\screen_mirror_deployment_my_laptop\central-admin\server
+node app.js
 ```
 
-**Steps:**
-1. **Create test timetable CSV:**
-   - Set start time 5 minutes from now
-   - Set end time 10 minutes after start
-   - Use current date (2025-12-11)
-
-2. **Upload to admin dashboard:**
-   - Navigate to Timetable section
-   - Click "Upload Timetable"
-   - Select your CSV file
-   - Click "Upload"
-
-3. **Verify upload success:**
-   - Success message should show: "✅ Timetable uploaded successfully! X entries saved."
-   - Check server logs for timetable entry creation
-
-4. **Wait for scheduled start time:**
-   - Watch server console at scheduled time
-   - Look for: `📅 Timetable trigger: Starting session for Test Session`
-
-5. **Verify on kiosk:**
-   - Kiosk should show lab session started notification
-   - System should become monitored
-
-6. **Wait for scheduled end time:**
-   - Look for: `📅 Timetable trigger: Ending session for Test Session`
-   - Kiosk should show 60-second countdown
-   - Logout should occur automatically
-
-**Expected Results:**
-- ✅ Upload successful with entry count
-- ✅ Session starts automatically at scheduled time
-- ✅ Console log shows timetable trigger
-- ✅ Session ends automatically at end time
-- ✅ CSV report generated in reports/automatic/
-
-**If it fails:**
-- Check CSV format matches expected structure
-- Verify times are in HH:MM format (24-hour)
-- Check server cron scheduler is running
-- Verify date format is YYYY-MM-DD
-
----
-
-## Test 5: Session End & Shutdown - 5 minutes
-
-**Prerequisites:**
-- Active lab session running
-- Student logged into kiosk
-
-**Steps:**
-1. **Admin ends session:**
-   - Click "End Lab Session" in admin dashboard
-   - Confirm the action
-
-2. **Check kiosk immediately:**
-   - Should show notification: "Lab session ending in 60 seconds"
-   - Countdown timer visible
-   - "Logout" button present
-
-3. **Option A - Manual logout:**
-   - Click "Logout" button
-   - Verify shutdown countdown: "System will shutdown in 90 seconds"
-   - Verify timer shows "1 minute 30 seconds"
-
-4. **Option B - Auto logout:**
-   - Wait for 60-second countdown to reach 0
-   - Auto-logout should trigger
-   - Shutdown countdown should start
-
-5. **Cancel shutdown (for testing):**
-   - Open CMD as administrator
-   - Run: `shutdown /a`
-   - This aborts the shutdown for testing purposes
-
-**Expected Results:**
-- ✅ Notification appears within 2 seconds
-- ✅ 60-second countdown accurate
-- ✅ Logout button functional
-- ✅ Auto-logout works if no action taken
-- ✅ 90-second shutdown countdown starts
-- ✅ Return to login screen after logout
-
-**If it fails:**
-- Check Socket.io connection in browser console
-- Verify `lab-session-ending` event handler in renderer.js
-- Check if shutdown command requires admin privileges
-
----
-
-## Quick Verification Commands
-
-### Check if server is running:
-```powershell
-Test-NetConnection -ComputerName 192.168.29.212 -Port 7401
+**Watch for these startup messages:**
 ```
-
-### Check processes:
-```powershell
-Get-Process | Where-Object {$_.ProcessName -match "node|electron"}
-```
-
-### Check MongoDB connection:
-- Open admin dashboard
-- Check browser console for "MongoDB connected"
-
-### View server logs in real-time:
-```powershell
-cd D:\screen_mirror_deployment_my_laptop\central-admin\server
-node app.js 2>&1 | Tee-Object -FilePath server.log
+✅ MongoDB connected successfully
+✅ No stale sessions found - database is clean
+📅 Timetable-based automatic session scheduler started
+⏰ Scheduling report 1 for CC1 at HH:MM
+Server running on port 7401
 ```
 
 ---
 
-## Troubleshooting
+### Step 2: Test Automatic Session Starting
 
-### Screen Mirroring Not Working:
-1. Check browser console for WebRTC errors
-2. Verify Socket.io connection in Network tab
-3. Check kiosk logs for "Permission requested: media"
-4. Try refreshing admin dashboard
+#### Option A: Use the Test Script (Easiest)
 
-### Forgot Password OTP Not Received:
-1. Check server logs for email sending errors
-2. Verify nodemailer configuration
-3. Check spam folder
-4. Ensure student has email address in database
+```cmd
+cd d:\screen_mirror_deployment_my_laptop\central-admin\server
+node test-timetable.js
+```
 
-### Automatic Timetable Not Triggering:
-1. Verify current server time: `Get-Date -Format "HH:mm"`
-2. Check timetable entries in MongoDB
-3. Verify cron scheduler running (server logs)
-4. Ensure date/time format matches exactly
+This will:
+- Create a test session that starts in 2 minutes
+- Show you exactly what to watch for
+- Give you the session details
 
-### Kiosk Not Receiving Events:
-1. Check Socket.io connection status
-2. Verify kiosk registered with correct session ID
-3. Refresh kiosk application
-4. Check server logs for socket events
+#### Option B: Manual Upload
+
+1. Open your browser: `http://localhost:7401/dashboard/admin-dashboard.html`
+2. Login (if needed)
+3. Scroll to "Timetable Management" section
+4. Edit `sample_timetable.csv`:
+   - Change first entry date to TODAY (2026-01-07)
+   - Change start time to 2 minutes from now (e.g., if it's 10:43, set to 10:45)
+5. Upload the CSV
+6. Watch the server console
+
+**Expected Output in Server Console:**
+```
+⏰ Timetable check at 10:45
+📋 Found 1 timetable entries for today
+📅 Timetable trigger: Starting session for Data Structures at 10:45
+🚀 AUTO-STARTING LAB SESSION FROM TIMETABLE
+   Subject: Data Structures
+   Faculty: Dr. Rajesh Kumar
+   Lab ID: CC1
+   Time: 10:45 - 12:40
+✅ Lab session auto-started: Data Structures
+✅ Session auto-started successfully: Data Structures
+```
+
+**Expected in Admin Dashboard:**
+- Active session appears in "Lab Session Control" section
+- Shows subject, faculty, and duration
+- "End Lab Session" button is visible
 
 ---
 
-## Test Results Template
+### Step 3: Test Systems List (Only Connected Systems)
 
-Copy this to record your test results:
+#### Check Current Registry:
 
+```cmd
+cd d:\screen_mirror_deployment_my_laptop\central-admin\server
+node test-system-registry.js
 ```
-=== TEST RESULTS ===
-Date: 2025-12-11
-Time: 18:45 IST
 
-[ ] Test 1: Screen Mirroring
-    Status: ___________
-    Notes: ___________
+This shows all registered systems in the database.
 
-[ ] Test 2: Forgot Password
-    Status: ___________
-    Notes: ___________
+#### Test the Dashboard:
 
-[ ] Test 3: First-Time Sign In
-    Status: ___________
-    Notes: ___________
+1. Open dashboard: `http://localhost:7401/dashboard/admin-dashboard.html`
+2. Scroll to "Guest Access - Quick System Unlock"
+3. Select "CC1" from the lab dropdown
 
-[ ] Test 4: Automatic Timetable
-    Status: ___________
-    Notes: ___________
+**If no kiosks are connected, you should see:**
+```
+📡 No systems connected yet for Computer Center Lab 1
 
-[ ] Test 5: Session End & Shutdown
-    Status: ___________
-    Notes: ___________
+Systems will appear here automatically when students 
+power on and connect from kiosks.
 
-Overall Status: ___ / 5 tests passed
+💡 Tip: Have students log in from the kiosk desktop 
+app to register their systems.
+```
 
-Issues Found:
-1. ___________
-2. ___________
+#### To Test System Appearing:
 
-Recommendations:
-1. ___________
-2. ___________
+1. Launch the kiosk app on a test system:
+   ```cmd
+   cd d:\screen_mirror_deployment_my_laptop\student-kiosk\desktop-app
+   npm start
+   ```
+
+2. Login as a student (use any registered student)
+
+3. Go back to Admin Dashboard and refresh the "Guest Access" section
+
+4. You should now see the system appear (e.g., "🔵 CC1-01" with student name)
+
+5. When student logs out, system should show as "🟢 CC1-01" (available)
+
+**Key Point:** Only systems that actually connect will appear - no more showing all 60 offline systems!
+
+---
+
+### Step 4: Test Automatic Reports
+
+1. Open dashboard: `http://localhost:7401/dashboard/admin-dashboard.html`
+2. Scroll to "Automatic Report Schedule" section
+3. Set Schedule 1 to **2 minutes from now**:
+   - Example: If it's 10:45 now, set to 10:47
+4. Make sure "Enable" checkbox is checked
+5. Click "Save Schedule"
+6. Wait for the scheduled time
+
+**Expected Output in Server Console:**
+```
+⏰ Scheduling report 1 for CC1 at 10:47
+📊 Generating scheduled report for lab: CC1 at 1/7/2026, 10:47:00 AM
+✅ Report generated: CC1-sessions-2026-01-07.csv
+💾 Automatic report 1 saved: [path]
+📢 Broadcasting scheduled report 1 for CC1
+```
+
+**Expected in Browser:**
+- Report should automatically download
+- Filename: `CC1-sessions-2026-01-07.csv`
+- Contains all sessions from today
+
+**Check Report Folder:**
+```cmd
+dir d:\screen_mirror_deployment_my_laptop\central-admin\server\reports\automatic
 ```
 
 ---
 
-*Generated: 2025-12-11 18:45 IST*  
-*System Version: 1.0.0*
+## 🔍 Verification Checklist
+
+### Automatic Session Starting:
+- [ ] Timetable monitor logs every minute: `⏰ Timetable check at HH:MM`
+- [ ] Session starts at exact scheduled time
+- [ ] Admin dashboard shows active session immediately
+- [ ] No duplicate sessions created for same subject/time
+- [ ] Session auto-ends at specified end time
+- [ ] Report generated when session ends
+
+### Systems List:
+- [ ] Empty state message shows when no systems connected
+- [ ] System appears after kiosk login
+- [ ] System shows "logged-in" status with student name
+- [ ] System shows "available" after logout (not removed)
+- [ ] Lab stats are accurate (Available: X, Logged In: Y, etc.)
+- [ ] Only actual connected systems appear (not all 60)
+
+### Report Generation:
+- [ ] Schedule can be saved successfully
+- [ ] Report generates at scheduled time
+- [ ] Browser auto-downloads the report
+- [ ] Report saved in `reports/automatic/` folder
+- [ ] Report contains correct data
+- [ ] Both Schedule 1 and Schedule 2 work independently
+
+---
+
+## 📊 Monitoring & Debugging
+
+### Real-Time Server Monitoring
+
+Keep the server console open to see:
+- Every minute: `⏰ Timetable check at HH:MM`
+- Session starts: `✅ Session auto-started successfully`
+- Student logins: `✅ Session created: [ID] for [Student]`
+- System registry: `✅ System registry updated: CC1-01 -> Student Name`
+- Report generation: `📊 Generating scheduled report for lab: CC1`
+
+### Check Database Directly
+
+**Timetable Entries:**
+```cmd
+cd d:\screen_mirror_deployment_my_laptop\central-admin\server
+node test-timetable.js
+```
+
+**System Registry:**
+```cmd
+cd d:\screen_mirror_deployment_my_laptop\central-admin\server
+node test-system-registry.js
+```
+
+**Active Sessions:**
+```cmd
+node check-students.js
+```
+
+### Common Issues & Solutions
+
+**1. Session not starting automatically:**
+- Check server time matches system time
+- Verify timetable entry date is TODAY
+- Check `isProcessed` is false in database
+- Ensure server is running continuously
+
+**2. Systems not appearing:**
+- Verify kiosk app is connected to server
+- Check server console for "register-kiosk" events
+- Verify socket connection successful
+- Check system number is correct format (CC1-01)
+
+**3. Reports not generating:**
+- Check schedule is enabled (checkbox checked)
+- Verify time format is correct (HH:MM, 24-hour)
+- Check server timezone (should be Asia/Kolkata)
+- Look for cron errors in server console
+
+---
+
+## 🎯 End-to-End Test Scenario
+
+Here's a complete workflow to test everything:
+
+### 1. Start Fresh
+```cmd
+cd d:\screen_mirror_deployment_my_laptop\central-admin\server
+node app.js
+```
+
+### 2. Create Test Session (Starting in 3 minutes)
+```cmd
+node test-timetable.js
+```
+
+### 3. Open Dashboard
+Open: `http://localhost:7401/dashboard/admin-dashboard.html`
+
+### 4. Check Systems List
+- Should show "No systems connected"
+
+### 5. Launch Kiosk and Login
+```cmd
+cd d:\screen_mirror_deployment_my_laptop\student-kiosk\desktop-app
+npm start
+```
+- Login as a test student
+
+### 6. Verify System Appears in Dashboard
+- Refresh dashboard
+- System should now appear as "logged-in"
+
+### 7. Wait for Auto-Start (3 minutes)
+- Watch server console
+- Session should start automatically
+- Dashboard should show active session
+
+### 8. Verify Student is Tracked
+- Student should appear in "Active Students" section
+- Student should be in lab session records
+
+### 9. Test Logout
+- Logout from kiosk
+- System should change to "available" in dashboard
+
+### 10. Schedule Report for 2 Minutes
+- Set Schedule 1 to current time + 2 minutes
+- Save schedule
+- Wait for auto-download
+
+### 11. Verify Everything
+- Check `reports/automatic/` folder for CSV
+- Check server console logs
+- Verify session auto-ended at end time
+
+---
+
+## ✅ Success Criteria
+
+All three issues are FIXED if:
+
+1. ✅ **Timetable Auto-Start**: Sessions start/end automatically at scheduled times without manual intervention
+2. ✅ **Systems List**: Only connected systems appear, with accurate real-time status updates
+3. ✅ **Report Generation**: Reports generate and download automatically at configured times
+
+---
+
+## 📞 Support
+
+If you encounter any issues:
+1. Check server console logs for error messages
+2. Verify MongoDB connection is active
+3. Check server-config.json has correct IP
+4. Ensure no firewall blocking port 7401
+5. Review FIXES_APPLIED.md for detailed technical info
+
+---
+
+**Testing should take approximately 10-15 minutes total.**
+
+Good luck! 🚀

@@ -8,6 +8,7 @@ const http = require('http');
 const socketIo = require('socket.io');
 const path = require('path');
 const cron = require('node-cron');
+const { exec } = require('child_process');
 
 // IP Auto-Detection
 const { detectLocalIP, saveServerConfig } = require('./ip-detector');
@@ -98,6 +99,7 @@ const studentSchema = new mongoose.Schema({
   passwordHash: { type: String },
   dateOfBirth: { type: Date, required: true },
   department: { type: String, required: true },
+  section: { type: String, default: 'A' },
   year: { type: Number, required: true },
   labId: { type: String, required: true },
   isPasswordSet: { type: Boolean, default: false },
@@ -1144,9 +1146,9 @@ app.post('/api/check-student-eligibility', async (req, res) => {
 // NEW: Add individual student
 app.post('/api/add-student', async (req, res) => {
   try {
-    const { studentId, name, email, dateOfBirth, department, year, labId } = req.body;
+    const { studentId, name, email, dateOfBirth, department, section, year, labId } = req.body;
     
-    // Validate required fields (labId is now optional)
+    // Validate required fields (labId and section are optional)
     if (!studentId || !name || !email || !dateOfBirth || !department || !year) {
       return res.status(400).json({ 
         success: false, 
@@ -1176,6 +1178,7 @@ app.post('/api/add-student', async (req, res) => {
       email: email.toLowerCase(),
       dateOfBirth: new Date(dateOfBirth),
       department: department.trim(),
+      section: section ? section.trim() : 'A', // Default to 'A' if not provided
       year: parseInt(year),
       labId: labId ? labId.toUpperCase() : 'ALL', // Default to 'ALL' if not provided
       isPasswordSet: false
@@ -1193,6 +1196,7 @@ app.post('/api/add-student', async (req, res) => {
         name: newStudent.name,
         email: newStudent.email,
         department: newStudent.department,
+        section: newStudent.section,
         year: newStudent.year,
         labId: newStudent.labId
       }
@@ -2224,12 +2228,37 @@ app.post('/api/student-login', async (req, res) => {
     
     await newSession.save();
     
+    // Update system registry with student login info - CRITICAL FOR SCREEN MIRRORING
+    try {
+      await SystemRegistry.findOneAndUpdate(
+        { systemNumber },
+        {
+          systemNumber,
+          labId,
+          ipAddress: req.ip || req.connection.remoteAddress,
+          status: isGuest ? 'guest' : 'logged-in',
+          currentSessionId: newSession._id,
+          currentStudentId: isGuest ? 'GUEST' : studentId,
+          currentStudentName: isGuest ? 'Guest User' : studentName,
+          isGuest: isGuest || false,
+          lastSeen: new Date()
+        },
+        { upsert: true, new: true }
+      );
+      console.log(`✅ System registry updated: ${systemNumber} -> ${studentName} (Session: ${newSession._id})`);
+    } catch (regError) {
+      console.error('❌ Error updating system registry:', regError);
+    }
+    
     // Save session to CSV file
     await saveSessionToCSV(newSession);
     
     // Update active lab session with this student record
     try {
-      const activeLabSession = await LabSession.findOne({ status: 'active' });
+      const activeLabSession = await LabSession.findOne({ 
+        status: 'active',
+        labId: labId 
+      });
       if (activeLabSession) {
         console.log(`📚 Found active lab session: ${activeLabSession.subject} (ID: ${activeLabSession._id})`);
         
@@ -2250,7 +2279,7 @@ app.post('/api/student-login', async (req, res) => {
         await activeLabSession.save();
         console.log(`📚 Added ${studentName} to lab session: ${activeLabSession.subject}`);
       } else {
-        console.log(`⚠️ No active lab session found. Student ${studentName} logged in but not tracked in lab session.`);
+        console.log(`⚠️ No active lab session found for ${labId}. Student ${studentName} logged in but not tracked in lab session.`);
       }
     } catch (labSessionError) {
       console.error(`❌ Error updating lab session:`, labSessionError);
@@ -2291,11 +2320,32 @@ app.post('/api/student-logout', async (req, res) => {
       session.duration = Math.floor((session.logoutTime - session.loginTime) / 1000);
       await session.save();
 
+      // Update system registry - mark as available again
+      try {
+        await SystemRegistry.findOneAndUpdate(
+          { systemNumber: session.systemNumber },
+          {
+            status: 'available',
+            currentSessionId: null,
+            currentStudentId: null,
+            currentStudentName: null,
+            isGuest: false,
+            lastSeen: new Date()
+          }
+        );
+        console.log(`✅ System ${session.systemNumber} marked as available`);
+      } catch (regError) {
+        console.error('❌ Error updating system registry on logout:', regError);
+      }
+
       // Update session in CSV file
       await updateSessionInCSV(session);
 
       // Update active lab session with logout info
-      const activeLabSession = await LabSession.findOne({ status: 'active' });
+      const activeLabSession = await LabSession.findOne({ 
+        status: 'active',
+        labId: session.labId 
+      });
       if (activeLabSession) {
         const studentRecord = activeLabSession.studentRecords.find(
           record => record.systemNumber === session.systemNumber && record.status === 'active'
@@ -2318,6 +2368,7 @@ app.post('/api/student-logout', async (req, res) => {
         sessionId, 
         studentName: session.studentName, 
         computerName: session.computerName, 
+        systemNumber: session.systemNumber,
         logoutTime: session.logoutTime, 
         duration: session.duration 
       });
@@ -2432,39 +2483,48 @@ app.get('/api/systems/:labId', async (req, res) => {
       return res.status(400).json({ success: false, error: 'Invalid lab ID' });
     }
     
-    // Get all systems for this lab from registry
-    const systems = await SystemRegistry.find({ labId })
+    // Get all registered (connected) systems for this lab from registry
+    // ONLY show systems with logged-in or guest status (actively being used)
+    const systems = await SystemRegistry.find({ 
+      labId,
+      status: { $in: ['logged-in', 'guest'] } // Only show systems with active students
+    })
       .sort({ systemNumber: 1 })
       .lean();
     
-    // Get lab configuration
+    // Get lab configuration for metadata
     const labConfig = getLabConfig(labId);
     
-    // Create complete list with status
-    const systemList = labConfig.systemRange.map(systemNumber => {
-      const registered = systems.find(s => s.systemNumber === systemNumber);
-      return {
-        systemNumber,
-        labId,
-        status: registered?.status || 'offline',
-        ipAddress: registered?.ipAddress || null,
-        lastSeen: registered?.lastSeen || null,
-        currentStudentId: registered?.currentStudentId || null,
-        currentStudentName: registered?.currentStudentName || null,
-        isGuest: registered?.isGuest || false
-      };
-    });
+    // Create list with only logged-in/guest systems
+    const systemList = systems.map(system => ({
+      systemNumber: system.systemNumber,
+      labId: system.labId,
+      status: system.status,
+      ipAddress: system.ipAddress || null,
+      lastSeen: system.lastSeen || null,
+      currentStudentId: system.currentStudentId || null,
+      currentStudentName: system.currentStudentName || null,
+      isGuest: system.isGuest || false,
+      sessionId: system.currentSessionId || null
+    }));
+    
+    // Calculate statistics
+    const stats = {
+      totalSystems: systemList.length,
+      availableSystems: 0, // Not showing available systems
+      loggedInSystems: systemList.filter(s => s.status === 'logged-in').length,
+      guestSystems: systemList.filter(s => s.status === 'guest').length,
+      offlineSystems: 0 // Not showing offline systems
+    };
+    
+    console.log(`📊 Systems for ${labId} (logged-in only):`, stats);
     
     res.json({ 
       success: true, 
       labId,
       labName: labConfig.labName,
       systems: systemList,
-      totalSystems: systemList.length,
-      availableSystems: systemList.filter(s => s.status === 'available').length,
-      loggedInSystems: systemList.filter(s => s.status === 'logged-in').length,
-      guestSystems: systemList.filter(s => s.status === 'guest').length,
-      offlineSystems: systemList.filter(s => s.status === 'offline').length
+      ...stats
     });
   } catch (error) {
     console.error("Error fetching systems:", error);
@@ -4090,6 +4150,7 @@ async function restartReportScheduler() {
 // =================================================================
 
 // Function to auto-start lab session from timetable
+// Function to auto-start lab session from timetable
 async function autoStartLabSession(timetableEntry) {
   try {
     console.log(`\n${'='.repeat(60)}`);
@@ -4100,13 +4161,28 @@ async function autoStartLabSession(timetableEntry) {
     console.log(`   Time: ${timetableEntry.startTime} - ${timetableEntry.endTime}`);
     console.log(`${'='.repeat(60)}\n`);
     
-    // Check if there's already an active lab session
-    const existingSession = await LabSession.findOne({ status: 'active' });
+    // Check if there's already an active lab session for this lab
+    const existingSession = await LabSession.findOne({ 
+      status: 'active',
+      labId: timetableEntry.labId 
+    });
+    
     if (existingSession) {
-      console.log(`⚠️ Active lab session already exists: ${existingSession.subject}`);
+      console.log(`⚠️ Active lab session already exists in ${timetableEntry.labId}: ${existingSession.subject}`);
+      
+      // Check if it's the same session (avoid duplicate starts)
+      if (existingSession.subject === timetableEntry.subject && 
+          existingSession.faculty === timetableEntry.faculty) {
+        console.log(`ℹ️ Same session already running - skipping duplicate start`);
+        timetableEntry.isProcessed = true;
+        timetableEntry.labSessionId = existingSession._id;
+        await timetableEntry.save();
+        return { success: true, labSession: existingSession, message: 'Session already running' };
+      }
+      
+      // Different session - end the existing one first
       console.log(`   Ending existing session before starting new one...`);
       
-      // End existing session
       existingSession.status = 'completed';
       existingSession.endTime = new Date();
       await existingSession.save();
@@ -4122,6 +4198,7 @@ async function autoStartLabSession(timetableEntry) {
     
     // Create new lab session from timetable
     const newLabSession = new LabSession({
+      labId: timetableEntry.labId,
       subject: timetableEntry.subject,
       faculty: timetableEntry.faculty,
       year: timetableEntry.year,
@@ -4144,11 +4221,13 @@ async function autoStartLabSession(timetableEntry) {
     
     console.log(`✅ Lab session auto-started: ${newLabSession.subject}`);
     console.log(`   Session ID: ${newLabSession._id}`);
+    console.log(`   Lab ID: ${newLabSession.labId}`);
     
     // Notify admins via socket
     if (io) {
       io.to('admins').emit('lab-session-auto-started', {
         sessionId: newLabSession._id,
+        labId: newLabSession.labId,
         subject: newLabSession.subject,
         faculty: newLabSession.faculty,
         startTime: newLabSession.startTime,
@@ -4250,6 +4329,8 @@ cron.schedule('* * * * *', async () => {
     const currentDate = now.toISOString().split('T')[0]; // YYYY-MM-DD
     const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
     
+    console.log(`⏰ Timetable check at ${currentTime}`);
+    
     // Find timetable entries for today
     const startOfDay = new Date(currentDate);
     startOfDay.setHours(0, 0, 0, 0);
@@ -4259,19 +4340,31 @@ cron.schedule('* * * * *', async () => {
     const todayEntries = await TimetableEntry.find({
       isActive: true,
       sessionDate: { $gte: startOfDay, $lte: endOfDay }
-    });
+    }).sort({ startTime: 1 });
+    
+    console.log(`📋 Found ${todayEntries.length} timetable entries for today`);
     
     for (const entry of todayEntries) {
       // Check if it's time to start the session
       if (entry.startTime === currentTime && !entry.isProcessed) {
-        console.log(`📅 Timetable trigger: Starting session for ${entry.subject}`);
-        await autoStartLabSession(entry);
+        console.log(`📅 Timetable trigger: Starting session for ${entry.subject} at ${currentTime}`);
+        const result = await autoStartLabSession(entry);
+        if (result.success) {
+          console.log(`✅ Session auto-started successfully: ${entry.subject}`);
+        } else {
+          console.error(`❌ Failed to auto-start session: ${result.error}`);
+        }
       }
       
       // Check if it's time to end the session
       if (entry.endTime === currentTime && entry.isProcessed && entry.labSessionId) {
-        console.log(`📅 Timetable trigger: Ending session for ${entry.subject}`);
-        await autoEndLabSession(entry);
+        console.log(`📅 Timetable trigger: Ending session for ${entry.subject} at ${currentTime}`);
+        const result = await autoEndLabSession(entry);
+        if (result.success) {
+          console.log(`✅ Session auto-ended successfully: ${entry.subject}`);
+        } else {
+          console.error(`❌ Failed to auto-end session: ${result.error}`);
+        }
       }
     }
   } catch (error) {
@@ -4528,6 +4621,11 @@ app.use('/student-signin', express.static(path.join(__dirname, '../../student-si
 // Serve student management system (after API routes)
 app.use('/student-management', express.static(path.join(__dirname, '../../')));
 
+// Direct route for student management system
+app.get('/student-management-system.html', (req, res) => {
+  res.sendFile(path.join(__dirname, '../../student-management-system.html'));
+});
+
 // Serve admin dashboard (fallback route - must be last)
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, '../dashboard/index.html'));
@@ -4583,6 +4681,25 @@ app.use('/api/*', (req, res) => {
 });
 
 const PORT = process.env.PORT || 7401;
+
+// Function to open browser automatically
+function openBrowser(url) {
+  const start = process.platform === 'win32' ? 'start' : 
+                process.platform === 'darwin' ? 'open' : 'xdg-open';
+  
+  // Use 'start ""' for Windows to avoid command prompt issues
+  const command = process.platform === 'win32' ? `start "" "${url}"` : `${start} "${url}"`;
+  
+  exec(command, (error) => {
+    if (error) {
+      console.log(`⚠️  Could not auto-open browser: ${error.message}`);
+      console.log(`📌 Please manually open: ${url}`);
+    } else {
+      console.log(`🌐 Browser opened automatically: ${url}`);
+    }
+  });
+}
+
 server.listen(PORT, '0.0.0.0', async () => {
   // Auto-detect and save server IP
   const serverIp = detectLocalIP();
@@ -4604,4 +4721,10 @@ server.listen(PORT, '0.0.0.0', async () => {
   // Initialize automatic report schedulers
   console.log('⏰ Initializing automatic report schedulers...');
   await setupReportSchedulers();
+  
+  // Auto-open admin dashboard in browser (with slight delay to ensure server is ready)
+  setTimeout(() => {
+    const adminDashboardUrl = `http://${serverIp}:${PORT}/dashboard/admin-dashboard.html`;
+    openBrowser(adminDashboardUrl);
+  }, 1000);
 });
